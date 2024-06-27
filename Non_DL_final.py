@@ -6,7 +6,7 @@ from scipy.ndimage import median_filter
 
 
 # Add Gaussian noise
-def add_gaussian_noise(image, mean=0, var=100):
+def add_gaussian_noise(image, mean=0, var=1000):
     sigma = var ** 0.5
     gauss = np.random.normal(mean, sigma, image.shape).astype('float32')
     noisy = cv.add(image.astype('float32'), gauss)
@@ -40,6 +40,7 @@ def denoise_image_with_wiener(noisy_image):
     return denoised_image.astype('uint8')
 
 
+
 def calculate_snr(image):
 
     # Ensure the image is in numpy array format
@@ -61,16 +62,21 @@ def calculate_snr(image):
     return snr
 
 
+def calculate_psnr(gt, pred, range_=255.0):
+        mse = np.mean((gt - pred) ** 2)
+        return 20 * np.log10((range_) / np.sqrt(mse))
+
+
 def apply_filter(noisy_img, filter_num=1):
-    if(filter_num == 1):
+    if filter_num == 1:
         denoised_image = cv.blur(noisy_img, (3, 3))
-    elif(filter_num == 2):
+    elif filter_num == 2:
         denoised_image = cv.GaussianBlur(noisy_img, (5,5), 0)
-    elif(filter_num == 3):
+    elif filter_num == 3:
         denoised_image = cv.medianBlur(noisy_img, 3)
-    elif(filter_num == 4):
+    elif filter_num == 4:
         denoised_image = denoise_image_with_wiener(noisy_img)
-    elif(filter_num == 5):
+    elif filter_num == 5:
         denoised_image = median_filter(noisy_img, size=3)
     return denoised_image
 
@@ -81,6 +87,11 @@ def plot_results(original_image, noisy_image, denoised_image,filter_num =1):
     SNR = calculate_snr(original_image)
     SNR1 = calculate_snr(noisy_image)
     SNR2 = calculate_snr(denoised_image)
+
+    # Calculate PSNR
+    rangePSNR = np.max(original_image) - np.min(original_image)
+    PSNR1 = calculate_psnr(original_image, noisy_image, rangePSNR)
+    PSNR2 = calculate_psnr(original_image, denoised_image, rangePSNR)
 
     if (filter_num==1):
         Title = "Box Filter"
@@ -94,22 +105,32 @@ def plot_results(original_image, noisy_image, denoised_image,filter_num =1):
         Title = "Box3D Filter"
 
     # visualize actual image vs noisy image vs denoised image
-    fig, axs = plt.subplots(1, 3, figsize=(25, 20))
+    fig, axs = plt.subplots(2, 3, figsize=(25, 20))
     plt.suptitle(Title)
-    axs[0].imshow(original_image)
-    axs[0].title.set_text(f'Original Image - SNR = {SNR:.2f}')
-    axs[1].imshow(noisy_image)
-    axs[1].title.set_text(f'Noisy Image - SNR = {SNR1:.2f}')
-    axs[2].imshow(denoised_image)
-    axs[2].title.set_text(f'Denoised Image - SNR = {SNR2:.2f}')
+    axs[0][0].imshow(original_image)
+    axs[0][0].title.set_text(f'Original Image - SNR = {SNR:.2f}')
+    axs[0][1].imshow(noisy_image)
+    axs[0][1].title.set_text(f'Noisy Image - SNR = {SNR1:.2f} ; PSNR = {PSNR1:.2f}')
+    axs[0][2].imshow(denoised_image)
+    axs[0][2].title.set_text(f'Denoised Image - SNR = {SNR2:.2f} ; PSNR = {PSNR2:.2f}')
+
+    # Visualize zoomed in image
+    axs[1][0].imshow(original_image[100:200,150:250])
+    axs[1][0].title.set_text(f'Original Image')
+    axs[1][1].imshow(noisy_image[100:200,150:250])
+    axs[1][1].title.set_text(f'Noisy Image')
+    axs[1][2].imshow(denoised_image[100:200,150:250])
+    axs[1][2].title.set_text(f'Denoised Image')
     plt.show()
 
 
 # Read image into an array
-addr = 'images/livecell_train_val_images/A172_Phase_A7_1_00d00h00m_1.tif'
+#addr = 'images/livecell_train_val_images/A172_Phase_A7_1_00d00h00m_1.tif'
+addr = 'images/Img_new.tiff'
 img = cv.imread(addr)
 
 noisy_g = add_gaussian_noise(img)
+cv.imwrite('new_noisy_image.tiff',noisy_g)
 noisy_s = add_salt_n_pepper_noise(img)
 
 # denoise the image using box filter
